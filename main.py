@@ -1,6 +1,6 @@
 import requests
 import logging
-import pyodbc
+import mysql.connector
 from datetime import datetime, timedelta
 
 WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast"
@@ -12,17 +12,54 @@ PARAMS = {
     "hourly": "temperature_2m,precipitation,cloudcover,windspeed_10m",
     "timezone": "auto"
 }
-DB_CONNECTION_STRING = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=LAPTOP-KPSGVP52;DATABASE=WeatherAlert;UID=LAPTOP-KPSGVP52\\andre;PWD='';"
+DB_CONNECTION_STRING = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': '1234',
+    'database': 'weather_alerts'
+}
 
 logging.basicConfig(filename='weather_alerts.log', level=logging.INFO)
-
+    
 def get_db_connection():
     try:
-        return pyodbc.connect(DB_CONNECTION_STRING)
-    except pyodbc.Error as e:
+        return mysql.connector.connect(**DB_CONNECTION_STRING)
+    except mysql.connector.Error as e:
         logging.error(f"Database connection error: {e}")
         return None
+
+def setup_database():
+    conn = get_db_connection()
+    if not conn:
+        return False
     
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS contacts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(50),
+                phone_number VARCHAR(20) UNIQUE,
+                last_alert DATETIME
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS alert_log (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                phone_number VARCHAR(20),
+                alert_text TEXT,
+                sent_time DATETIME,
+                status VARCHAR(20)
+            )
+        """)
+        conn.commit()
+        return True
+    except mysql.connector.Error as e:
+        logging.error(f"Error in setup_database: {e}")
+        return False
+    finally:
+        conn.close()
+
 def fetch_weather_data():
     try:
         response = requests.get(WEATHER_API_URL, params=PARAMS, timeout=10)
@@ -52,6 +89,9 @@ def analyze_weather_data(data):
         return []
 
 def main():
+    if not setup_database():
+        return
+    
     weather_data = fetch_weather_data()
     if not weather_data:
         return
@@ -60,8 +100,6 @@ def main():
     
     for alert in alerts:
         print(alert)
-
-    print(get_db_connection)
 
 if __name__ == "__main__":
     main()
