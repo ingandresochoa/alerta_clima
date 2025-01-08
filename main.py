@@ -60,6 +60,26 @@ def setup_database():
     finally:
         conn.close()
 
+def get_eligible_users():
+    conn = get_db_connection()
+    if not conn:
+        return []
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT phone_number 
+            FROM contacts 
+            WHERE last_alert IS NULL 
+            OR DATE_ADD(NOW(), INTERVAL -3 HOUR) > last_alert
+        """)
+        return [row[0] for row in cursor.fetchall()]
+    except mysql.connector.Error as e:
+        logging.error(f"Error getting users: {e}")
+        return []
+    finally:
+        conn.close()
+
 def fetch_weather_data():
     try:
         response = requests.get(WEATHER_API_URL, params=PARAMS, timeout=10)
@@ -97,6 +117,9 @@ def main():
         return
     
     alerts = analyze_weather_data(weather_data)
+
+    phone_numbers = get_eligible_users()
+    print(phone_numbers)
     
     for alert in alerts:
         print(alert)
