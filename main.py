@@ -80,6 +80,31 @@ def get_eligible_users():
     finally:
         conn.close()
 
+def update_alert_status(phone_number, alert_text, status):
+    conn = get_db_connection()
+    if not conn:
+        return
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO alert_log (phone_number, alert_text, sent_time, status)
+            VALUES (%s, %s, NOW(), %s)
+        """, (phone_number, alert_text, status))
+        
+        if status == 'SUCCESS':
+            cursor.execute("""
+                UPDATE contacts 
+                SET last_alert = NOW()
+                WHERE phone_number = %s
+            """, (phone_number,))
+        
+        conn.commit()
+    except mysql.connector.Error as e:
+        logging.error(f"Error updating status: {e}")
+    finally:
+        conn.close()
+
 def fetch_weather_data():
     try:
         response = requests.get(WEATHER_API_URL, params=PARAMS, timeout=10)
