@@ -119,7 +119,8 @@ def main():
     alerts = analyze_weather_data(weather_data)
 
     phone_numbers = get_eligible_users()
-    print(phone_numbers)
+    if not phone_numbers:
+        return
     
     for alert in alerts:
         print(alert)
