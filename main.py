@@ -1,5 +1,6 @@
 import requests
 import logging
+import pyodbc
 from datetime import datetime, timedelta
 
 WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast"
@@ -11,9 +12,17 @@ PARAMS = {
     "hourly": "temperature_2m,precipitation,cloudcover,windspeed_10m",
     "timezone": "auto"
 }
+DB_CONNECTION_STRING = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=LAPTOP-KPSGVP52;DATABASE=WeatherAlert;UID=LAPTOP-KPSGVP52\\andre;PWD='';"
 
 logging.basicConfig(filename='weather_alerts.log', level=logging.INFO)
 
+def get_db_connection():
+    try:
+        return pyodbc.connect(DB_CONNECTION_STRING)
+    except pyodbc.Error as e:
+        logging.error(f"Database connection error: {e}")
+        return None
+    
 def fetch_weather_data():
     try:
         response = requests.get(WEATHER_API_URL, params=PARAMS, timeout=10)
@@ -48,11 +57,11 @@ def main():
         return
     
     alerts = analyze_weather_data(weather_data)
-    if not alerts:
-        return
     
     for alert in alerts:
         print(alert)
+
+    print(get_db_connection)
 
 if __name__ == "__main__":
     main()
