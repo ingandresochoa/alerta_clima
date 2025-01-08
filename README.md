@@ -23,11 +23,13 @@ Este proyecto, pensado e ideado luego de ver como llovía sábado, domingo y lun
 ```bash
 git clone https://github.com/tu_usuario/weather-alerts.git
 cd weather-alerts
+```
 
 ### 2. Instala las dependencias
 
 ```bash
 pip install -r requirements.txt
+```
 
 ### 3. Configura las credenciales
 
@@ -40,6 +42,7 @@ DB_NAME="weather_alerts"
 TWILIO_ACCOUNT_SID="tu_sid_de_twilio"
 TWILIO_AUTH_TOKEN="tu_token_de_autenticacion_de_twilio"
 TWILIO_PHONE_NUMBER="tu_numero_de_twilio"
+```
 
 ### 4. Configura la base de datos
 
@@ -51,6 +54,7 @@ El sistema se ejecuta automaticamente cuando inicias el script principal. Esto v
 
 ```bash
 python main.py
+```
 
 ## Ver los registros
 
