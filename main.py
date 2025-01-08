@@ -1,7 +1,20 @@
 import requests
 import logging
 import mysql.connector
+import os
+
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_HOST = os.getenv("DB_HOST")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME")
+ENV_TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+ENV_TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+ENV_TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 
 WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast"
 LATITUDE = "11.24079"
@@ -13,10 +26,10 @@ PARAMS = {
     "timezone": "auto"
 }
 DB_CONNECTION_STRING = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '1234',
-    'database': 'weather_alerts'
+    'host': DB_HOST,
+    'user': DB_USER,
+    'password': DB_PASSWORD,
+    'database': DB_NAME
 }
 
 logging.basicConfig(filename='weather_alerts.log', level=logging.INFO)
@@ -71,7 +84,7 @@ def get_eligible_users():
             SELECT phone_number 
             FROM contacts 
             WHERE last_alert IS NULL 
-            OR DATE_ADD(NOW(), INTERVAL -3 HOUR) > last_alert
+            OR DATE_ADD(NOW(), INTERVAL -1 HOUR) > last_alert
         """)
         return [row[0] for row in cursor.fetchall()]
     except mysql.connector.Error as e:
@@ -123,15 +136,38 @@ def analyze_weather_data(data):
         for i in range(current_hour, current_hour + 1):
             if forecast["precipitation"][i] > 1:
                 alerts.append("🌧️ Lluvia pronosticada")
-            if forecast["windspeed_10m"][i] > 40:
+            if forecast["windspeed_10m"][i] > 45:
                 alerts.append("🌪️ Vientos fuertes")
-            if forecast["cloudcover"][i] > 80:
+            if forecast["cloudcover"][i] > 75:
                 alerts.append("☁️ Alta nubosidad")
         
         return list(set(alerts))
     except (KeyError, IndexError) as e:
         logging.error(f"Error in analysis: {e}")
         return []
+    
+def send_sms(message, phone_numbers):
+    from twilio.rest import Client
+
+    TWILIO_ACCOUNT_SID = ENV_TWILIO_ACCOUNT_SID
+    TWILIO_AUTH_TOKEN = ENV_TWILIO_AUTH_TOKEN
+    TWILIO_PHONE_NUMBER = ENV_TWILIO_PHONE_NUMBER
+
+    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    
+    for phone_number in phone_numbers:
+        print(phone_number)
+        try:
+            message_response = client.messages.create(
+                body=message,
+                from_=TWILIO_PHONE_NUMBER,
+                to=phone_number
+            )
+            status = 'SUCCESS'
+            update_alert_status(phone_number, message, status)
+        except Exception as e:
+            logging.error(f"Twilio error {phone_number}: {e}")
+            update_alert_status(phone_number, message, 'FAILED')
 
 def main():
     if not setup_database():
@@ -142,13 +178,15 @@ def main():
         return
     
     alerts = analyze_weather_data(weather_data)
+    if not alerts:
+        return
 
     phone_numbers = get_eligible_users()
     if not phone_numbers:
         return
     
     for alert in alerts:
-        print(alert)
+        send_sms(alert, phone_numbers)
 
 if __name__ == "__main__":
     main()
